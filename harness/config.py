@@ -38,6 +38,10 @@ class Config:
     # How many times, at most, we hand a test failure back to the agent to fix.
     max_eval_retries: int = field(default_factory=lambda: int(os.getenv("HARNESS_MAX_EVAL_RETRIES", "3")))
 
+    # Orchestration budgets: max subtasks executed and max planner re-plans/repairs.
+    max_subtasks: int = field(default_factory=lambda: int(os.getenv("HARNESS_MAX_SUBTASKS", "8")))
+    max_replans: int = field(default_factory=lambda: int(os.getenv("HARNESS_MAX_REPLANS", "3")))
+
     # Timeout (seconds) for shell commands in the sandbox.
     command_timeout: int = field(default_factory=lambda: int(os.getenv("HARNESS_CMD_TIMEOUT", "120")))
 

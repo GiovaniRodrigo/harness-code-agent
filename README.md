@@ -96,16 +96,22 @@ SDKs but not exercised in CI — verify against your installed SDK version.
 
 ## Orchestration (multi-agent)
 
-For larger goals, a planner agent decomposes the goal into independent subtasks
-and runs each as its own isolated coding agent (in a dedicated sub-workspace),
-then aggregates the results. The planner reuses the same Provider layer, so it
-works across vendors too.
+For larger goals, a planner decomposes the goal into ordered subtasks that run
+as separate coding agents against **one shared workspace**, so each builds on
+the last. After each subtask its changes are committed as a **git checkpoint**;
+a failed subtask is rolled back and the planner gets one **repair** attempt, and
+between subtasks the planner may **re-plan** the remaining work. When the plan is
+done, an optional whole-goal verification runs the test command against the
+shared workspace. The planner reuses the same Provider layer, so it works across
+vendors too.
 
 ```bash
-python3 main.py --orchestrate "Build a small CLI todo app with pytest tests."
+python3 main.py --orchestrate --test-command "python3 -m pytest -q" \
+  "Build a small CLI todo app with tests."
 ```
 
-Each subtask lands in `workspace/NN-<slug>/`; see `harness/orchestrator.py`.
+Budgets: `HARNESS_MAX_SUBTASKS` (default 8), `HARNESS_MAX_REPLANS` (default 3).
+See `harness/orchestrator.py` and `harness/checkpoint.py`.
 
 ## Control panel (HTTP API)
 

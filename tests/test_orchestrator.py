@@ -1,7 +1,8 @@
-"""Tests for the multi-agent orchestrator, with no API calls.
+"""Tests for the iterative multi-agent orchestrator (no API calls, no git).
 
-`plan()` is driven by a scripted FakeProvider; `run()` has `run_agent` stubbed
-so we exercise decomposition and aggregation without launching real agents.
+Planning is driven through the Provider seam (a scripted FakeProvider per
+planning call), checkpointing through an in-memory FakeCheckpointer, and
+subtask execution through a stubbed run_agent.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from harness.checkpoint import Checkpointer
 from harness.config import Config
 from harness.loop import AgentResult
 from harness.orchestrator import Orchestrator
@@ -28,108 +30,158 @@ class FakeProvider(Provider):
         return LLMResponse(done=True)
 
 
-def _config(tmp: str) -> Config:
+class FakeCheckpointer(Checkpointer):
+    def __init__(self) -> None:
+        self.commits: list[tuple[str, str]] = []
+        self.rollbacks: list[str] = []
+        self._n = 0
+
+    def init(self) -> None:
+        pass
+
+    def commit(self, label: str) -> str:
+        self._n += 1
+        cid = f"ckpt{self._n}"
+        self.commits.append((cid, label))
+        return cid
+
+    def rollback(self, checkpoint: str) -> None:
+        self.rollbacks.append(checkpoint)
+
+
+def _plan_provider(subtasks: list[tuple[str, str]]) -> FakeProvider:
+    call = ToolCall(
+        "1",
+        "submit_plan",
+        {"subtasks": [{"title": t, "description": d} for t, d in subtasks]},
+    )
+    return FakeProvider(LLMResponse(tool_calls=[call]))
+
+
+def _config(tmp: str, **overrides) -> Config:
     cfg = Config()
     cfg.workspace = Path(tmp) / "workspace"
     cfg.event_log = Path(tmp) / "events.jsonl"
+    cfg.test_command = ""
+    for key, value in overrides.items():
+        setattr(cfg, key, value)
     return cfg
 
 
-class OrchestratorTest(unittest.TestCase):
+def _ok(_desc: str, _cfg: Config) -> AgentResult:
+    return AgentResult(success=True, summary="done", steps=1)
+
+
+class PlanTest(unittest.TestCase):
     def test_plan_parses_subtasks(self) -> None:
-        plan_call = ToolCall(
-            "1",
-            "submit_plan",
-            {
-                "subtasks": [
-                    {"title": "Model", "description": "Write the model."},
-                    {"title": "Tests", "description": "Write the tests."},
-                ]
-            },
-        )
-        fake = FakeProvider(LLMResponse(tool_calls=[plan_call]))
+        provider = _plan_provider([("Model", "m"), ("Tests", "t")])
         with tempfile.TemporaryDirectory() as tmp:
-            with patch("harness.orchestrator.build_provider", return_value=fake):
+            with patch("harness.orchestrator.build_provider", return_value=provider):
                 subtasks = Orchestrator(_config(tmp)).plan("build a thing")
         self.assertEqual([s.title for s in subtasks], ["Model", "Tests"])
 
-    def test_plan_falls_back_to_single_subtask(self) -> None:
-        fake = FakeProvider(LLMResponse(text="no plan", done=True))
+    def test_plan_falls_back_when_no_tool_call(self) -> None:
+        provider = FakeProvider(LLMResponse(text="no plan", done=True))
         with tempfile.TemporaryDirectory() as tmp:
-            with patch("harness.orchestrator.build_provider", return_value=fake):
+            with patch("harness.orchestrator.build_provider", return_value=provider):
                 subtasks = Orchestrator(_config(tmp)).plan("build a thing")
-        self.assertEqual(len(subtasks), 1)
-        self.assertEqual(subtasks[0].title, "main")
+        self.assertEqual([s.title for s in subtasks], ["main"])
 
-    def test_plan_empty_submit_plan_falls_back(self) -> None:
-        # submit_plan called, but with an empty subtasks list -> fallback.
-        empty_call = ToolCall("1", "submit_plan", {"subtasks": []})
-        fake = FakeProvider(LLMResponse(tool_calls=[empty_call]))
+    def test_plan_falls_back_on_empty_plan(self) -> None:
+        provider = _plan_provider([])
         with tempfile.TemporaryDirectory() as tmp:
-            with patch("harness.orchestrator.build_provider", return_value=fake):
+            with patch("harness.orchestrator.build_provider", return_value=provider):
                 subtasks = Orchestrator(_config(tmp)).plan("build a thing")
-        self.assertEqual(len(subtasks), 1)
-        self.assertEqual(subtasks[0].title, "main")
+        self.assertEqual([s.title for s in subtasks], ["main"])
 
-    def test_run_stops_on_subtask_failure(self) -> None:
-        plan_call = ToolCall(
-            "1",
-            "submit_plan",
-            {
-                "subtasks": [
-                    {"title": "First step", "description": "do A"},
-                    {"title": "Second step", "description": "do B"},
-                ]
-            },
-        )
-        fake = FakeProvider(LLMResponse(tool_calls=[plan_call]))
-        calls: list[str] = []
 
-        def failing_run_agent(desc: str, cfg: Config) -> AgentResult:
-            calls.append(desc)
-            return AgentResult(success=False, summary="failed", steps=1)
-
+class RunTest(unittest.TestCase):
+    def test_happy_path_checkpoints_each_subtask(self) -> None:
+        providers = [_plan_provider([("A", "do A"), ("B", "do B")]), _plan_provider([("B", "do B")])]
+        ckpt = FakeCheckpointer()
         with tempfile.TemporaryDirectory() as tmp:
-            with patch("harness.orchestrator.build_provider", return_value=fake), patch(
-                "harness.orchestrator.run_agent", side_effect=failing_run_agent
+            with patch("harness.orchestrator.build_provider", side_effect=providers), patch(
+                "harness.orchestrator.run_agent", side_effect=_ok
             ):
-                outcome = Orchestrator(_config(tmp)).run("build two things")
-
-        self.assertFalse(outcome.success)
-        # Stopped after the first failure; the second subtask never ran.
-        self.assertEqual(calls, ["do A"])
-        self.assertEqual(len(outcome.subtasks), 1)
-
-    def test_run_aggregates_subtasks(self) -> None:
-        plan_call = ToolCall(
-            "1",
-            "submit_plan",
-            {
-                "subtasks": [
-                    {"title": "First step", "description": "do A"},
-                    {"title": "Second step", "description": "do B"},
-                ]
-            },
-        )
-        fake = FakeProvider(LLMResponse(tool_calls=[plan_call]))
-        seen: list[tuple[str, Path]] = []
-
-        def fake_run_agent(desc: str, cfg: Config) -> AgentResult:
-            seen.append((desc, cfg.workspace))
-            return AgentResult(success=True, summary=f"did: {desc}", steps=1)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch("harness.orchestrator.build_provider", return_value=fake), patch(
-                "harness.orchestrator.run_agent", side_effect=fake_run_agent
-            ):
-                outcome = Orchestrator(_config(tmp)).run("build two things")
-
+                outcome = Orchestrator(_config(tmp), checkpointer=ckpt).run("build A and B")
         self.assertTrue(outcome.success)
-        self.assertEqual(len(outcome.subtasks), 2)
-        # Each subtask ran in its own distinct sub-workspace.
-        workspaces = {str(ws) for _, ws in seen}
-        self.assertEqual(len(workspaces), 2)
-        self.assertTrue(any("first-step" in w for w in workspaces))
+        self.assertFalse(outcome.aborted)
+        self.assertEqual([s.title for s in outcome.subtasks], ["A", "B"])
+        # baseline + one commit per successful subtask, no rollbacks.
+        self.assertEqual(len(ckpt.commits), 3)
+        self.assertEqual(ckpt.rollbacks, [])
+
+    def test_replan_changes_remaining_plan(self) -> None:
+        # Initial plan is A,B,C; after A succeeds the planner re-plans the tail
+        # down to a single new subtask X. B and C must be dropped.
+        providers = [
+            _plan_provider([("A", "do A"), ("B", "do B"), ("C", "do C")]),
+            _plan_provider([("X", "do X instead")]),
+        ]
+        ckpt = FakeCheckpointer()
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("harness.orchestrator.build_provider", side_effect=providers), patch(
+                "harness.orchestrator.run_agent", side_effect=_ok
+            ):
+                outcome = Orchestrator(_config(tmp), checkpointer=ckpt).run("build it")
+        self.assertTrue(outcome.success)
+        self.assertEqual([s.title for s in outcome.subtasks], ["A", "X"])
+
+    def test_subtask_exception_is_treated_as_failure(self) -> None:
+        providers = [_plan_provider([("A", "do A")]), _plan_provider([])]  # repair gives up
+        ckpt = FakeCheckpointer()
+
+        def boom(_desc: str, _cfg: Config) -> AgentResult:
+            raise RuntimeError("provider exploded")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("harness.orchestrator.build_provider", side_effect=providers), patch(
+                "harness.orchestrator.run_agent", side_effect=boom
+            ):
+                outcome = Orchestrator(_config(tmp), checkpointer=ckpt).run("do A")
+        # The crash is caught, rolled back, and (repair empty) aborts cleanly.
+        self.assertFalse(outcome.success)
+        self.assertTrue(outcome.aborted)
+        self.assertEqual(len(ckpt.rollbacks), 1)
+
+    def test_failure_triggers_rollback_and_repair(self) -> None:
+        providers = [_plan_provider([("A", "do A")]), _plan_provider([("A2", "do A better")])]
+        results = iter([AgentResult(False, "boom", 1), AgentResult(True, "fixed", 2)])
+        ckpt = FakeCheckpointer()
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("harness.orchestrator.build_provider", side_effect=providers), patch(
+                "harness.orchestrator.run_agent", side_effect=lambda d, c: next(results)
+            ):
+                outcome = Orchestrator(_config(tmp), checkpointer=ckpt).run("do A")
+        self.assertTrue(outcome.success)
+        self.assertFalse(outcome.aborted)
+        self.assertEqual([s.title for s in outcome.subtasks], ["A2"])
+        self.assertEqual(len(ckpt.rollbacks), 1)  # rolled back after A failed
+
+    def test_aborts_when_repair_gives_up(self) -> None:
+        providers = [_plan_provider([("A", "do A")]), _plan_provider([])]  # repair returns nothing
+        ckpt = FakeCheckpointer()
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("harness.orchestrator.build_provider", side_effect=providers), patch(
+                "harness.orchestrator.run_agent", return_value=AgentResult(False, "boom", 1)
+            ):
+                outcome = Orchestrator(_config(tmp), checkpointer=ckpt).run("do A")
+        self.assertFalse(outcome.success)
+        self.assertTrue(outcome.aborted)
+        self.assertEqual(len(ckpt.rollbacks), 1)
+
+    def test_whole_goal_verification_can_fail(self) -> None:
+        providers = [_plan_provider([("A", "do A")])]
+        ckpt = FakeCheckpointer()
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = _config(tmp, test_command="exit 1")
+            with patch("harness.orchestrator.build_provider", side_effect=providers), patch(
+                "harness.orchestrator.run_agent", side_effect=_ok
+            ):
+                outcome = Orchestrator(cfg, checkpointer=ckpt).run("do A")
+        self.assertFalse(outcome.success)
+        self.assertFalse(outcome.aborted)
+        self.assertFalse(outcome.verified)
 
 
 if __name__ == "__main__":
