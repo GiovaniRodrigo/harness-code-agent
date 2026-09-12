@@ -1,7 +1,7 @@
-"""Interface base de uma ferramenta.
+"""Base interface for a tool.
 
-Cada ferramenta declara seu schema (o que o modelo vê) e implementa `run`.
-O modelo NUNCA toca o sistema diretamente — só através de uma Tool registrada.
+Each tool declares its schema (what the model sees) and implements `run`.
+The model NEVER touches the system directly — only through a registered Tool.
 """
 
 from __future__ import annotations
@@ -19,15 +19,15 @@ class ToolResult:
 
 
 class Tool:
-    #: Nome exposto ao modelo (deve casar com o tool_use.name).
+    #: Name exposed to the model (must match tool_use.name).
     name: str = ""
-    #: Descrição que ajuda o modelo a decidir quando usar a ferramenta.
+    #: Description that helps the model decide when to use the tool.
     description: str = ""
-    #: JSON Schema dos argumentos.
+    #: JSON Schema of the arguments.
     input_schema: dict[str, Any] = {}
 
     def to_schema(self) -> dict[str, Any]:
-        """Formato aceito pelo parâmetro `tools` da Messages API."""
+        """Format accepted by the Messages API `tools` parameter."""
         return {
             "name": self.name,
             "description": self.description,

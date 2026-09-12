@@ -1,7 +1,7 @@
-"""Estado da execução + event log append-only.
+"""Run state + an append-only event log.
 
-Um agente pode fazer dezenas de ações. Guardar cada passo como um evento
-permite auditar, reproduzir bugs e avaliar o agente depois.
+An agent may take dozens of actions. Storing each step as an event lets you
+audit, reproduce bugs, and evaluate the agent afterwards.
 """
 
 from __future__ import annotations
@@ -18,11 +18,11 @@ class State:
     task: str
     event_log_path: Path
     step: int = 0
-    # Histórico no formato aceito pela Messages API (role/content).
+    # History in the format accepted by the Messages API (role/content).
     messages: list[dict[str, Any]] = field(default_factory=list)
 
     def record(self, kind: str, **data: Any) -> None:
-        """Anexa um evento ao log JSONL. Nunca reescreve — append-only."""
+        """Append an event to the JSONL log. Never rewrites — append-only."""
         event = {"ts": time.time(), "step": self.step, "kind": kind, **data}
         with self.event_log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")

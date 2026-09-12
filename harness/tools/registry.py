@@ -1,4 +1,4 @@
-"""Registry: o modelo só enxerga as ferramentas registradas aqui."""
+"""Registry: the model only sees the tools registered here."""
 
 from __future__ import annotations
 
@@ -23,19 +23,19 @@ class ToolRegistry:
         return self._tools.get(name)
 
     def schemas(self) -> list[dict[str, Any]]:
-        """Definições no formato do parâmetro `tools` da Messages API.
+        """Definitions in the Messages API `tools` parameter format.
 
-        Ordem determinística — importante para o cache de prompt não invalidar.
+        Deterministic order — important so the prompt cache isn't invalidated.
         """
         return [self._tools[name].to_schema() for name in sorted(self._tools)]
 
     def execute(self, name: str, args: dict[str, Any], sandbox: Sandbox) -> ToolResult:
         tool = self.get(name)
         if tool is None:
-            return ToolResult(f"Ferramenta desconhecida: {name}", is_error=True)
+            return ToolResult(f"Unknown tool: {name}", is_error=True)
         return tool.run(args, sandbox)
 
 
 def default_registry() -> ToolRegistry:
-    """Conjunto padrão de ferramentas de um coding agent."""
+    """Default tool set for a coding agent."""
     return ToolRegistry([ReadFile(), WriteFile(), ListDir(), RunCommand()])

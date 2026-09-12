@@ -1,7 +1,7 @@
-Crie um módulo `fib.py` com uma função `fib(n)` que retorna o n-ésimo número
-de Fibonacci (fib(0) = 0, fib(1) = 1).
+Create a `fib.py` module with a `fib(n)` function that returns the n-th
+Fibonacci number (fib(0) = 0, fib(1) = 1).
 
-Depois crie `test_fib.py` com testes de pytest cobrindo os casos base e alguns
-valores conhecidos (por exemplo, fib(10) == 55).
+Then create `test_fib.py` with pytest tests covering the base cases and a few
+known values (for example, fib(10) == 55).
 
-Rode os testes com `python3 -m pytest -q` e garanta que passem antes de finalizar.
+Run the tests with `python3 -m pytest -q` and make sure they pass before finishing.

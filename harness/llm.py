@@ -1,8 +1,8 @@
-"""Wrapper fino sobre o SDK da Anthropic.
+"""Thin wrapper over the Anthropic SDK.
 
-Isola a chamada da Messages API do resto do harness: modelo, thinking
-adaptativo, esforço e o conjunto de ferramentas. O loop do agente (loop.py)
-não conhece detalhes do SDK — só chama `generate`.
+Isolates the Messages API call from the rest of the harness: model, adaptive
+thinking, effort, and the tool set. The agent loop (loop.py) knows nothing
+about SDK details — it just calls `generate`.
 """
 
 from __future__ import annotations
@@ -17,7 +17,8 @@ from harness.config import Config
 class LLM:
     def __init__(self, config: Config) -> None:
         self.config = config
-        # Resolve credenciais do ambiente (ANTHROPIC_API_KEY ou perfil `ant auth login`).
+        # Resolve credentials from the environment (ANTHROPIC_API_KEY or an
+        # `ant auth login` profile).
         self.client = anthropic.Anthropic()
 
     def generate(
@@ -26,10 +27,10 @@ class LLM:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> anthropic.types.Message:
-        """Uma iteração de raciocínio do agente.
+        """One reasoning iteration of the agent.
 
-        Devolve o objeto Message inteiro; o loop inspeciona stop_reason e os
-        blocos de conteúdo (thinking / text / tool_use).
+        Returns the whole Message object; the loop inspects stop_reason and the
+        content blocks (thinking / text / tool_use).
         """
         return self.client.messages.create(
             model=self.config.model,

@@ -1,8 +1,8 @@
-"""O loop do agente — o coração do harness.
+"""The agent loop — the heart of the harness.
 
-Costura todos os componentes: context -> LLM -> (policy -> sandbox -> tools)
--> state/event log -> evaluator. É um loop manual (não o tool runner do SDK)
-justamente porque o objetivo aqui é ver e controlar cada etapa.
+It stitches all the components together: context -> LLM -> (policy -> sandbox ->
+tools) -> state/event log -> evaluator. It is a manual loop (not the SDK tool
+runner) precisely because the goal here is to see and control every step.
 """
 
 from __future__ import annotations
@@ -52,49 +52,49 @@ def run_agent(task: str, config: Config | None = None) -> AgentResult:
     while state.step < config.max_steps:
         state.step += 1
 
-        # 1) Uma iteração de raciocínio do modelo.
+        # 1) One reasoning iteration of the model.
         response = llm.generate(system=system, messages=state.messages, tools=tools)
         state.record("model_called", stop_reason=response.stop_reason)
 
-        # Preserva a resposta inteira no histórico (inclui blocos de thinking,
-        # que precisam voltar ao modelo na mesma sessão/modelo).
+        # Keep the whole response in the history (including thinking blocks,
+        # which must be sent back to the model in the same session/model).
         state.add_assistant(response.content)
 
         text_blocks = [b.text for b in response.content if b.type == "text"]
         if text_blocks:
             final_text = "\n".join(text_blocks)
 
-        # Servidor pausou um tool server-side: basta reenviar para continuar.
+        # A server-side tool paused; just resend to continue.
         if response.stop_reason == "pause_turn":
             continue
 
-        # 2) O modelo parou de chamar ferramentas => candidato a finalizar.
+        # 2) The model stopped calling tools => candidate to finish.
         if response.stop_reason == "end_turn":
             evaluation = evaluator.check(sandbox)
             if evaluation.success:
                 state.record("task_completed", summary=final_text)
-                _log("tarefa concluída." + ("" if not evaluator.enabled else " testes verdes."))
+                _log("task complete." + ("" if not evaluator.enabled else " tests green."))
                 return AgentResult(success=True, summary=final_text, steps=state.step)
 
             eval_retries += 1
             state.record("evaluation_failed", retry=eval_retries)
             if eval_retries > config.max_eval_retries:
                 state.record("evaluation_gave_up", retries=eval_retries)
-                _log("evaluator reprovou após o limite de tentativas.")
+                _log("evaluator rejected after the retry limit.")
                 return AgentResult(success=False, summary=final_text, steps=state.step)
 
-            _log(f"evaluator reprovou (tentativa {eval_retries}); devolvendo ao agente.")
+            _log(f"evaluator rejected (attempt {eval_retries}); handing back to the agent.")
             state.add_user(evaluation.feedback)
             continue
 
-        # 3) stop_reason == "tool_use": executa cada chamada.
+        # 3) stop_reason == "tool_use": execute each call.
         tool_uses = [b for b in response.content if b.type == "tool_use"]
         tool_results = []
         for block in tool_uses:
             decision = policy.check(block.name, block.input)
             if not decision.allowed:
                 state.record("tool_rejected", tool=block.name, reason=decision.reason)
-                _log(f"policy bloqueou {block.name}: {decision.reason}")
+                _log(f"policy blocked {block.name}: {decision.reason}")
                 tool_results.append(
                     {
                         "type": "tool_result",
@@ -126,9 +126,9 @@ def run_agent(task: str, config: Config | None = None) -> AgentResult:
 
         state.add_user(tool_results)
 
-    # Estourou o teto de passos.
+    # Hit the step ceiling.
     state.record("max_steps_reached", steps=state.step)
-    _log("limite de passos atingido.")
+    _log("step limit reached.")
     return AgentResult(success=False, summary=final_text, steps=state.step)
 
 

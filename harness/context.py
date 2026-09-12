@@ -1,8 +1,8 @@
-"""Context manager: monta o system prompt e trunca saídas de ferramenta.
+"""Context manager: builds the system prompt and truncates tool output.
 
-Um harness bom controla o que entra no contexto a cada iteração. Aqui o
-essencial: um system prompt estável (bom para cache) e truncamento de
-saídas grandes de ferramenta para não estourar o orçamento de tokens.
+A good harness controls what enters the context on each iteration. The
+essentials here: a stable system prompt (good for caching) and truncation of
+large tool outputs so we don't blow the token budget.
 """
 
 from __future__ import annotations
@@ -10,28 +10,28 @@ from __future__ import annotations
 from harness.config import Config
 
 SYSTEM_TEMPLATE = """\
-Você é um agente de programação autônomo rodando dentro de um harness.
+You are an autonomous coding agent running inside a harness.
 
-Ambiente:
-- Você trabalha confinado a um workspace. Todos os caminhos são relativos a ele.
-- Você age SOMENTE através das ferramentas disponíveis (read_file, write_file,
-  list_dir, run_command). Não há outra forma de tocar o sistema.
-- Comandos de shell rodam no workspace, com timeout, e passam por policies de
-  segurança que podem bloquear ações perigosas.
+Environment:
+- You work confined to a workspace. All paths are relative to it.
+- You act ONLY through the available tools (read_file, write_file, list_dir,
+  run_command). There is no other way to touch the system.
+- Shell commands run in the workspace, with a timeout, and pass through safety
+  policies that may block dangerous actions.
 
-Como trabalhar:
-- Explore antes de editar: liste diretórios e leia arquivos relevantes.
-- Faça mudanças pequenas e verificáveis.
-- Quando houver como verificar (testes, execução), verifique você mesmo com run_command.
-- Ao terminar a tarefa, pare de chamar ferramentas e escreva um resumo curto do
-  que foi feito e como verificou.
+How to work:
+- Explore before editing: list directories and read the relevant files.
+- Make small, verifiable changes.
+- When there is a way to verify (tests, execution), verify it yourself with run_command.
+- When the task is done, stop calling tools and write a short summary of what
+  you did and how you verified it.
 
-Seja direto e eficiente com as chamadas de ferramenta.
+Be direct and efficient with your tool calls.
 """
 
 
 def build_system(config: Config) -> list[dict]:
-    """System prompt como bloco cacheável (estável entre iterações)."""
+    """System prompt as a cacheable block (stable across iterations)."""
     return [
         {
             "type": "text",
@@ -42,11 +42,11 @@ def build_system(config: Config) -> list[dict]:
 
 
 def truncate_output(text: str, max_bytes: int) -> str:
-    """Trunca no meio, preservando início e fim (mais úteis que o miolo)."""
+    """Truncate in the middle, keeping the head and tail (more useful than the middle)."""
     encoded = text.encode("utf-8")
     if len(encoded) <= max_bytes:
         return text
     head = encoded[: max_bytes // 2].decode("utf-8", errors="ignore")
     tail = encoded[-max_bytes // 2 :].decode("utf-8", errors="ignore")
     omitted = len(encoded) - max_bytes
-    return f"{head}\n\n... [{omitted} bytes omitidos pelo harness] ...\n\n{tail}"
+    return f"{head}\n\n... [{omitted} bytes omitted by the harness] ...\n\n{tail}"

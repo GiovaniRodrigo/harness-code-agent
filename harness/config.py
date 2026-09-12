@@ -1,4 +1,4 @@
-"""Configuração do harness, lida do ambiente com defaults sensatos."""
+"""Harness configuration, read from the environment with sensible defaults."""
 
 from __future__ import annotations
 
@@ -9,37 +9,37 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    # Modelo. Default: o mais capaz. Troque com HARNESS_MODEL=claude-sonnet-5 etc.
+    # Model. Default: the most capable one. Override with HARNESS_MODEL=claude-sonnet-5 etc.
     model: str = field(default_factory=lambda: os.getenv("HARNESS_MODEL", "claude-opus-5"))
 
-    # Esforço de raciocínio: low | medium | high | xhigh | max.
+    # Reasoning effort: low | medium | high | xhigh | max.
     effort: str = field(default_factory=lambda: os.getenv("HARNESS_EFFORT", "high"))
 
-    # Teto de tokens por resposta do modelo.
+    # Token ceiling per model response.
     max_tokens: int = field(default_factory=lambda: int(os.getenv("HARNESS_MAX_TOKENS", "16000")))
 
-    # Diretório de trabalho do agente. TUDO acontece confinado aqui (sandbox).
+    # The agent's working directory. EVERYTHING happens confined here (sandbox).
     workspace: Path = field(
         default_factory=lambda: Path(os.getenv("HARNESS_WORKSPACE", "./workspace")).resolve()
     )
 
-    # Limites do loop do agente.
+    # Agent loop limits.
     max_steps: int = field(default_factory=lambda: int(os.getenv("HARNESS_MAX_STEPS", "40")))
 
-    # Comando executado pelo evaluator para verificar o trabalho (ex.: "pytest -q").
-    # Vazio => sem verificação automática; o agente termina no primeiro end_turn.
+    # Command the evaluator runs to verify the work (e.g. "pytest -q").
+    # Empty => no automatic verification; the agent finishes on the first end_turn.
     test_command: str = field(default_factory=lambda: os.getenv("HARNESS_TEST_COMMAND", ""))
 
-    # Quantas vezes, no máximo, devolvemos falha de teste ao agente para ele corrigir.
+    # How many times, at most, we hand a test failure back to the agent to fix.
     max_eval_retries: int = field(default_factory=lambda: int(os.getenv("HARNESS_MAX_EVAL_RETRIES", "3")))
 
-    # Timeout (segundos) para comandos de shell no sandbox.
+    # Timeout (seconds) for shell commands in the sandbox.
     command_timeout: int = field(default_factory=lambda: int(os.getenv("HARNESS_CMD_TIMEOUT", "120")))
 
-    # Tamanho máximo (bytes) de saída de ferramenta devolvida ao modelo, para não estourar o contexto.
+    # Max size (bytes) of tool output returned to the model, so we don't blow the context.
     max_tool_output: int = field(default_factory=lambda: int(os.getenv("HARNESS_MAX_TOOL_OUTPUT", "16000")))
 
-    # Caminho do event log (JSONL). Permite auditoria e replay.
+    # Event log path (JSONL). Enables auditing and replay.
     event_log: Path = field(
         default_factory=lambda: Path(os.getenv("HARNESS_EVENT_LOG", "./harness_events.jsonl"))
     )

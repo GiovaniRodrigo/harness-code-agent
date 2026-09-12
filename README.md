@@ -1,11 +1,11 @@
 # harness_ai — coding-agent harness (MVP)
 
-Um harness mínimo, porém real, para um **agente de programação**. A ideia
-central: o LLM não é o sistema — ele é um componente dentro de um sistema que
-fornece **contexto, ferramentas, estado, limites e feedback verificável**.
+A minimal but real harness for a **coding agent**. The core idea: the LLM is
+not the system — it is a component inside a system that provides **context,
+tools, state, limits, and verifiable feedback**.
 
 ```
-Tarefa
+Task
   │
   ▼
 ┌──────────────────────── Harness ────────────────────────┐
@@ -15,70 +15,70 @@ Tarefa
 │            state / event log                             │
 │                 │                                        │
 │                 ▼                                        │
-│            evaluator (roda os testes)                    │
-│           pass ──► fim     |     fail ──► feedback ──► LLM│
+│            evaluator (runs the tests)                    │
+│           pass ──► done    |     fail ──► feedback ──► LLM│
 └──────────────────────────────────────────────────────────┘
 ```
 
-## Componentes
+## Components
 
-| Arquivo | Papel |
+| File | Role |
 |---|---|
-| `harness/loop.py` | O loop do agente — costura tudo. Loop **manual** (`while stop_reason == "tool_use"`), para deixar cada etapa visível. |
-| `harness/llm.py` | Wrapper fino sobre a Messages API (modelo, thinking adaptativo, esforço). |
-| `harness/tools/` | `Tool` base, `registry` e as ferramentas: `read_file`, `write_file`, `list_dir`, `run_command`. O modelo só age por aqui. |
-| `harness/sandbox.py` | Confina caminhos e comandos ao workspace; timeout de comandos. |
-| `harness/policies.py` | Guardrails: bloqueia comandos claramente perigosos antes de executar. |
-| `harness/context.py` | System prompt (cacheável) e truncamento de saídas grandes. |
-| `harness/state.py` | Histórico + **event log** append-only (JSONL) para auditoria/replay. |
-| `harness/evaluator.py` | Fecha o loop: roda o comando de teste e devolve falhas ao agente. |
-| `harness/config.py` | Configuração via ambiente, com defaults. |
+| `harness/loop.py` | The agent loop — stitches everything together. A **manual** loop (`while stop_reason == "tool_use"`) so every step stays visible. |
+| `harness/llm.py` | Thin wrapper over the Messages API (model, adaptive thinking, effort). |
+| `harness/tools/` | The `Tool` base, the `registry`, and the tools: `read_file`, `write_file`, `list_dir`, `run_command`. The model only acts through these. |
+| `harness/sandbox.py` | Confines paths and commands to the workspace; command timeout. |
+| `harness/policies.py` | Guardrails: blocks clearly dangerous commands before they run. |
+| `harness/context.py` | System prompt (cacheable) and truncation of large outputs. |
+| `harness/state.py` | History + an append-only **event log** (JSONL) for audit/replay. |
+| `harness/evaluator.py` | Closes the loop: runs the test command and hands failures back to the agent. |
+| `harness/config.py` | Environment-based configuration, with defaults. |
 | `main.py` | CLI. |
 
-## Instalação
+## Installation
 
 ```bash
 pip3 install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...   # ou use `ant auth login`
+export ANTHROPIC_API_KEY=sk-ant-...   # or use `ant auth login`
 ```
 
-> Use `python3`/`pip3`. Se preferir digitar só `python`/`pip`, instale o pacote
-> `python-is-python3` (`sudo apt install python-is-python3`).
+> Use `python3`/`pip3`. If you prefer to type just `python`/`pip`, install the
+> `python-is-python3` package (`sudo apt install python-is-python3`).
 
-## Uso
+## Usage
 
 ```bash
-# Tarefa inline (sem verificação automática)
-python3 main.py "Crie hello.py que imprime 'olá' e rode-o."
+# Inline task (no automatic verification)
+python3 main.py "Create hello.py that prints 'hello' and run it."
 
-# Com evaluator: o agente só termina quando os testes passarem
+# With the evaluator: the agent only finishes once the tests pass
 python3 main.py -f example/task.md --test-command "python3 -m pytest -q"
 ```
 
-Saída do agente (arquivos criados, etc.) fica em `./workspace/`. Cada passo é
-registrado em `./harness_events.jsonl`.
+The agent's output (created files, etc.) lands in `./workspace/`. Every step is
+recorded in `./harness_events.jsonl`.
 
-## Configuração
+## Configuration
 
-Todas as variáveis são opcionais (veja `.env.example`):
+All variables are optional (see `.env.example`):
 
-- `HARNESS_MODEL` — default `claude-opus-5`. Troque para `claude-sonnet-5` para reduzir custo.
+- `HARNESS_MODEL` — default `claude-opus-5`. Switch to `claude-sonnet-5` to cut cost.
 - `HARNESS_EFFORT` — `low` | `medium` | `high` | `xhigh` | `max`.
-- `HARNESS_WORKSPACE` — diretório de trabalho do agente.
-- `HARNESS_TEST_COMMAND` — comando do evaluator (ex.: `pytest -q`).
+- `HARNESS_WORKSPACE` — the agent's working directory.
+- `HARNESS_TEST_COMMAND` — the evaluator command (e.g. `pytest -q`).
 - `HARNESS_MAX_STEPS`, `HARNESS_MAX_EVAL_RETRIES`, `HARNESS_CMD_TIMEOUT`, `HARNESS_MAX_TOOL_OUTPUT`.
 
-## Segurança (leia antes de usar de verdade)
+## Security (read before real use)
 
-O `sandbox.py` confina caminhos e o `policies.py` bloqueia acidentes óbvios,
-mas **não é isolamento forte**. `run_command` executa shell de verdade. Para
-tarefas não confiáveis, rode o harness inteiro dentro de um container ou VM
-descartável e restrinja a rede.
+`sandbox.py` confines paths and `policies.py` blocks obvious accidents, but
+this is **not strong isolation**. `run_command` runs a real shell. For
+untrusted tasks, run the whole harness inside a disposable container or VM and
+restrict the network.
 
-## Próximos passos (para evoluir do MVP)
+## Next steps (to grow beyond the MVP)
 
-- **Streaming** de respostas e `task_budget` para tarefas longas.
-- **Compaction** / context editing quando o histórico crescer.
-- **Human-in-the-loop**: confirmar ações irreversíveis em vez de só bloquear.
-- **Checkpoints**: retomar execução a partir do event log.
-- Sandbox real (container por sessão) e limites de CPU/memória/rede.
+- **Streaming** responses and `task_budget` for long tasks.
+- **Compaction** / context editing once the history grows.
+- **Human-in-the-loop**: confirm irreversible actions instead of just blocking them.
+- **Checkpoints**: resume a run from the event log.
+- A real sandbox (per-session container) with CPU/memory/network limits.

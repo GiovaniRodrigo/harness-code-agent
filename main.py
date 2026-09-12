@@ -1,9 +1,9 @@
-"""Ponto de entrada CLI do harness.
+"""Harness CLI entry point.
 
-Uso:
-    python3 main.py "Crie fib.py com uma função fib(n) e um teste que passe."
-    python3 main.py -f tarefa.md
-    HARNESS_TEST_COMMAND="python3 -m pytest -q" python3 main.py "Faça os testes passarem."
+Usage:
+    python3 main.py "Create fib.py with a fib(n) function and a passing test."
+    python3 main.py -f task.md
+    HARNESS_TEST_COMMAND="python3 -m pytest -q" python3 main.py "Make the tests pass."
 """
 
 from __future__ import annotations
@@ -18,11 +18,11 @@ from harness.loop import run_agent
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Coding-agent harness (MVP).")
-    parser.add_argument("task", nargs="?", help="Descrição da tarefa.")
-    parser.add_argument("-f", "--file", help="Ler a tarefa de um arquivo.")
-    parser.add_argument("--workspace", help="Diretório de workspace (sobrescreve HARNESS_WORKSPACE).")
-    parser.add_argument("--test-command", help="Comando de verificação do evaluator (ex.: 'pytest -q').")
-    parser.add_argument("--model", help="Model ID (sobrescreve HARNESS_MODEL).")
+    parser.add_argument("task", nargs="?", help="Task description.")
+    parser.add_argument("-f", "--file", help="Read the task from a file.")
+    parser.add_argument("--workspace", help="Workspace directory (overrides HARNESS_WORKSPACE).")
+    parser.add_argument("--test-command", help="Evaluator verification command (e.g. 'pytest -q').")
+    parser.add_argument("--model", help="Model ID (overrides HARNESS_MODEL).")
     args = parser.parse_args()
 
     if args.file:
@@ -30,7 +30,7 @@ def main() -> int:
     elif args.task:
         task = args.task
     else:
-        parser.error("forneça uma tarefa como argumento ou via -f/--file.")
+        parser.error("provide a task as an argument or via -f/--file.")
 
     config = Config()
     if args.workspace:
@@ -40,15 +40,15 @@ def main() -> int:
     if args.model:
         config.model = args.model
 
-    print(f"Modelo:    {config.model}")
+    print(f"Model:     {config.model}")
     print(f"Workspace: {config.workspace}")
-    print(f"Evaluator: {config.test_command or '(nenhum)'}")
+    print(f"Evaluator: {config.test_command or '(none)'}")
     print("-" * 60)
 
     result = run_agent(task, config)
 
     print("-" * 60)
-    print(f"{'✓ SUCESSO' if result.success else '✗ FALHA'} em {result.steps} passos")
+    print(f"{'✓ SUCCESS' if result.success else '✗ FAILURE'} in {result.steps} steps")
     print()
     print(result.summary)
     return 0 if result.success else 1

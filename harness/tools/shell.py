@@ -1,4 +1,4 @@
-"""Ferramenta de shell, executada no sandbox e sujeita às policies."""
+"""Shell tool, executed in the sandbox and subject to the policies."""
 
 from __future__ import annotations
 
@@ -11,13 +11,13 @@ from harness.tools.base import Tool, ToolResult
 class RunCommand(Tool):
     name = "run_command"
     description = (
-        "Executa um comando de shell no diretório do workspace (ex.: rodar testes, "
-        "listar dependências, executar um script). Retorna exit_code, stdout e stderr."
+        "Run a shell command in the workspace directory (e.g. run tests, list "
+        "dependencies, execute a script). Returns exit_code, stdout and stderr."
     )
     input_schema: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "command": {"type": "string", "description": "Comando de shell a executar."},
+            "command": {"type": "string", "description": "Shell command to run."},
         },
         "required": ["command"],
         "additionalProperties": False,
@@ -31,6 +31,6 @@ class RunCommand(Tool):
         if result["stderr"]:
             parts.append(f"--- stderr ---\n{result['stderr']}")
         text = "\n".join(parts)
-        # Falha de comando não é erro de ferramenta: o modelo precisa ver o exit_code
-        # para decidir o próximo passo. is_error fica reservado a falhas do harness.
+        # A failing command is not a tool error: the model needs to see the
+        # exit_code to decide the next step. is_error is reserved for harness failures.
         return ToolResult(text)

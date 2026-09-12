@@ -1,9 +1,9 @@
 """Policies / guardrails.
 
-Antes de executar qualquer tool_use, o harness consulta a policy. Aqui
-implementamos um denylist simples para comandos de shell claramente
-destrutivos ou que escapam do sandbox. Em produção, evolua para confirmação
-humana (human-in-the-loop) nas ações irreversíveis.
+Before executing any tool_use, the harness consults the policy. Here we
+implement a simple denylist for shell commands that are clearly destructive or
+that escape the sandbox. In production, evolve this into human-in-the-loop
+confirmation for irreversible actions.
 """
 
 from __future__ import annotations
@@ -12,17 +12,17 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-# Padrões bloqueados em run_command. Não é uma sandbox de segurança completa —
-# é uma rede de proteção contra acidentes óbvios.
+# Patterns blocked in run_command. This is not a full security sandbox —
+# it is a safety net against obvious accidents.
 _BLOCKED_PATTERNS = [
-    r"\brm\s+-rf\s+/(?:\s|$)",   # rm -rf / (raiz)
-    r"\brm\s+-rf\s+~",           # rm -rf no home
+    r"\brm\s+-rf\s+/(?:\s|$)",   # rm -rf / (root)
+    r"\brm\s+-rf\s+~",           # rm -rf on home
     r":\(\)\s*\{.*\};:",         # fork bomb
-    r"\bsudo\b",                  # escalonamento de privilégio
+    r"\bsudo\b",                  # privilege escalation
     r"\bshutdown\b|\breboot\b",
-    r"\bmkfs\b|\bdd\s+if=",      # formatação / escrita em disco cru
-    r">\s*/dev/sd",               # escrita direta em dispositivo
-    r"\bcurl\b.*\|\s*(sh|bash)",  # pipe de rede para shell
+    r"\bmkfs\b|\bdd\s+if=",      # format / raw disk write
+    r">\s*/dev/sd",               # direct write to a device
+    r"\bcurl\b.*\|\s*(sh|bash)",  # piping the network into a shell
     r"\bwget\b.*\|\s*(sh|bash)",
 ]
 
@@ -42,8 +42,8 @@ class PolicyEngine:
                     return Decision(
                         allowed=False,
                         reason=(
-                            f"Comando bloqueado pela policy (padrão perigoso: /{pattern}/). "
-                            "Ajuste a abordagem sem esse comando."
+                            f"Command blocked by policy (dangerous pattern: /{pattern}/). "
+                            "Adjust your approach without that command."
                         ),
                     )
         return Decision(allowed=True)

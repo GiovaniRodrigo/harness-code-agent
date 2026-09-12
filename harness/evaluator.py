@@ -1,8 +1,8 @@
-"""Evaluator: fecha o loop com feedback verificável.
+"""Evaluator: closes the loop with verifiable feedback.
 
-O agente dizer "terminei" não basta — o harness verifica. Se um comando de
-teste estiver configurado, rodamos no sandbox. Testes passando => sucesso.
-Testes falhando => devolvemos a saída ao agente para ele corrigir.
+The agent saying "I'm done" is not enough — the harness verifies. If a test
+command is configured, we run it in the sandbox. Tests pass => success. Tests
+fail => we hand the output back to the agent to fix.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ class Evaluator:
         return bool(self.test_command)
 
     def check(self, sandbox: Sandbox) -> Evaluation:
-        """Roda o comando de teste. Sem comando configurado => aprova direto."""
+        """Run the test command. No command configured => approve immediately."""
         if not self.enabled:
             return Evaluation(success=True, feedback="")
 
@@ -36,8 +36,8 @@ class Evaluator:
             return Evaluation(success=True, feedback="")
 
         feedback = (
-            f"O evaluator rodou `{self.test_command}` e falhou "
-            f"(exit_code={result['exit_code']}). Corrija e não finalize até passar.\n"
+            f"The evaluator ran `{self.test_command}` and it failed "
+            f"(exit_code={result['exit_code']}). Fix it and do not finish until it passes.\n"
         )
         if result["stdout"]:
             feedback += f"\n--- stdout ---\n{result['stdout']}"

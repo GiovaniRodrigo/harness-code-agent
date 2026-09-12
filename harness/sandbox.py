@@ -1,9 +1,9 @@
-"""Sandbox: confina toda a atividade do agente ao diretório de workspace.
+"""Sandbox: confines all agent activity to the workspace directory.
 
-Não é isolamento de nível de container — é a primeira linha de defesa em
-processo. Para uso real com risco elevado, rode o harness inteiro dentro de
-um container/VM descartável. Aqui garantimos que caminhos e comandos não
-escapem do workspace por acidente.
+This is not container-level isolation — it is a first line of in-process
+defense. For real, higher-risk use, run the whole harness inside a disposable
+container/VM. Here we make sure paths and commands don't accidentally escape
+the workspace.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 class SandboxError(Exception):
-    """Violação de fronteira do sandbox (path traversal, workspace, etc.)."""
+    """Sandbox boundary violation (path traversal, workspace escape, etc.)."""
 
 
 class Sandbox:
@@ -23,23 +23,23 @@ class Sandbox:
         self.workspace.mkdir(parents=True, exist_ok=True)
 
     def resolve(self, relative_path: str) -> Path:
-        """Resolve um caminho relativo ao workspace e recusa qualquer escape.
+        """Resolve a path relative to the workspace and reject any escape.
 
-        Bloqueia path traversal (../), caminhos absolutos e symlinks que
-        apontem para fora do workspace.
+        Blocks path traversal (../), absolute paths, and symlinks that point
+        outside the workspace.
         """
         candidate = (self.workspace / relative_path).resolve()
         if candidate != self.workspace and self.workspace not in candidate.parents:
             raise SandboxError(
-                f"Caminho '{relative_path}' escapa do workspace {self.workspace}"
+                f"Path '{relative_path}' escapes the workspace {self.workspace}"
             )
         return candidate
 
     def run(self, command: str) -> dict:
-        """Executa um comando de shell com cwd=workspace e timeout.
+        """Run a shell command with cwd=workspace and a timeout.
 
-        Retorna exit_code, stdout, stderr. Não levanta em falha de comando —
-        o exit_code diferente de zero é informação útil para o agente.
+        Returns exit_code, stdout, stderr. Does not raise on command failure —
+        a non-zero exit_code is useful information for the agent.
         """
         try:
             proc = subprocess.run(
@@ -59,5 +59,5 @@ class Sandbox:
             return {
                 "exit_code": 124,
                 "stdout": "",
-                "stderr": f"Comando excedeu o timeout de {self.command_timeout}s e foi encerrado.",
+                "stderr": f"Command exceeded the {self.command_timeout}s timeout and was killed.",
             }

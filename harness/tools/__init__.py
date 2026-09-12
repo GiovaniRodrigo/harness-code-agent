@@ -1,4 +1,4 @@
-"""Ferramentas do agente e o registry que as expõe ao modelo."""
+"""Agent tools and the registry that exposes them to the model."""
 
 from harness.tools.base import Tool, ToolResult
 from harness.tools.registry import ToolRegistry, default_registry
