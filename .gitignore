@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+workspace/
+harness_events.jsonl
+.venv/
+venv/
+.vscode/
