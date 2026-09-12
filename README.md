@@ -38,18 +38,21 @@ Tarefa
 ## Instalação
 
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 export ANTHROPIC_API_KEY=sk-ant-...   # ou use `ant auth login`
 ```
+
+> Use `python3`/`pip3`. Se preferir digitar só `python`/`pip`, instale o pacote
+> `python-is-python3` (`sudo apt install python-is-python3`).
 
 ## Uso
 
 ```bash
 # Tarefa inline (sem verificação automática)
-python main.py "Crie hello.py que imprime 'olá' e rode-o."
+python3 main.py "Crie hello.py que imprime 'olá' e rode-o."
 
 # Com evaluator: o agente só termina quando os testes passarem
-python main.py -f example/task.md --test-command "python -m pytest -q"
+python3 main.py -f example/task.md --test-command "python3 -m pytest -q"
 ```
 
 Saída do agente (arquivos criados, etc.) fica em `./workspace/`. Cada passo é

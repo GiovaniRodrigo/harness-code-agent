@@ -1,9 +1,9 @@
 """Ponto de entrada CLI do harness.
 
 Uso:
-    python main.py "Crie fib.py com uma função fib(n) e um teste que passe."
-    python main.py -f tarefa.md
-    HARNESS_TEST_COMMAND="pytest -q" python main.py "Faça os testes passarem."
+    python3 main.py "Crie fib.py com uma função fib(n) e um teste que passe."
+    python3 main.py -f tarefa.md
+    HARNESS_TEST_COMMAND="python3 -m pytest -q" python3 main.py "Faça os testes passarem."
 """
 
 from __future__ import annotations
