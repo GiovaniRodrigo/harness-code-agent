@@ -94,6 +94,19 @@ Only the Anthropic backend is smoke-tested here (its SDK is the base
 dependency). The OpenAI and Google backends are written against their current
 SDKs but not exercised in CI — verify against your installed SDK version.
 
+## Orchestration (multi-agent)
+
+For larger goals, a planner agent decomposes the goal into independent subtasks
+and runs each as its own isolated coding agent (in a dedicated sub-workspace),
+then aggregates the results. The planner reuses the same Provider layer, so it
+works across vendors too.
+
+```bash
+python3 main.py --orchestrate "Build a small CLI todo app with pytest tests."
+```
+
+Each subtask lands in `workspace/NN-<slug>/`; see `harness/orchestrator.py`.
+
 ## Security (read before real use)
 
 `sandbox.py` confines paths and `policies.py` blocks obvious accidents, but
