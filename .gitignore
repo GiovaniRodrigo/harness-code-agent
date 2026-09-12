@@ -6,3 +6,4 @@ harness_events.jsonl
 .venv/
 venv/
 .vscode/
+harness_runs/

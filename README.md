@@ -107,6 +107,22 @@ python3 main.py --orchestrate "Build a small CLI todo app with pytest tests."
 
 Each subtask lands in `workspace/NN-<slug>/`; see `harness/orchestrator.py`.
 
+## Control panel (HTTP API)
+
+An optional FastAPI layer exposes the harness to a frontend (a panel generated
+with [v0](https://v0.dev)):
+
+```bash
+pip3 install fastapi uvicorn
+python3 -m harness.api            # http://127.0.0.1:8000
+```
+
+- `POST /run` — `{task, provider, model, orchestrate, test_command}` → `{run_id}`
+- `GET /events/{run_id}` — the run's event log, status and summary (poll it)
+- `GET /runs` — past runs
+
+Runs execute in a background thread; state is in-memory (local/dev use).
+
 ## Security (read before real use)
 
 `sandbox.py` confines paths and `policies.py` blocks obvious accidents, but
