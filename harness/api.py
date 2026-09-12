@@ -57,10 +57,20 @@ def _build_config(req: RunRequest, workspace: Path, event_log: Path) -> Config:
 
 
 def _execute(run_id: str, req: RunRequest, config: Config) -> None:
+    extra: dict[str, Any] = {}
     try:
         if req.orchestrate:
             outcome = Orchestrator(config).run(req.task)
             success, summary = outcome.success, outcome.summary
+            # Surface orchestration detail so the panel can show it directly.
+            extra = {
+                "aborted": outcome.aborted,
+                "verified": outcome.verified,
+                "subtasks": [
+                    {"title": s.title, "success": s.result.success, "checkpoint": s.checkpoint}
+                    for s in outcome.subtasks
+                ],
+            }
         else:
             result = run_agent(req.task, config)
             success, summary = result.success, result.summary
@@ -68,7 +78,7 @@ def _execute(run_id: str, req: RunRequest, config: Config) -> None:
     except Exception as exc:  # surface harness/provider errors to the client
         status, summary, error = "error", "", f"{type(exc).__name__}: {exc}"
     with _LOCK:
-        _RUNS[run_id].update(status=status, summary=summary, error=error)
+        _RUNS[run_id].update(status=status, summary=summary, error=error, **extra)
 
 
 def _read_events(event_log: Path) -> list[dict[str, Any]]:
