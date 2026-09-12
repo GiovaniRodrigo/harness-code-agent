@@ -6,13 +6,18 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from harness.providers.factory import DEFAULT_MODELS
+
 
 @dataclass
 class Config:
-    # Model. Default: the most capable one. Override with HARNESS_MODEL=claude-sonnet-5 etc.
-    model: str = field(default_factory=lambda: os.getenv("HARNESS_MODEL", "claude-opus-5"))
+    # LLM backend: anthropic | openai | google.
+    provider: str = field(default_factory=lambda: os.getenv("HARNESS_PROVIDER", "anthropic").lower())
 
-    # Reasoning effort: low | medium | high | xhigh | max.
+    # Model id. Empty => a per-provider default is filled in __post_init__.
+    model: str = field(default_factory=lambda: os.getenv("HARNESS_MODEL", ""))
+
+    # Reasoning effort (Anthropic only): low | medium | high | xhigh | max.
     effort: str = field(default_factory=lambda: os.getenv("HARNESS_EFFORT", "high"))
 
     # Token ceiling per model response.
@@ -43,6 +48,12 @@ class Config:
     event_log: Path = field(
         default_factory=lambda: Path(os.getenv("HARNESS_EVENT_LOG", "./harness_events.jsonl"))
     )
+
+    def __post_init__(self) -> None:
+        self.provider = self.provider.lower()
+        # Pick a per-provider default model when HARNESS_MODEL is unset.
+        if not self.model:
+            self.model = DEFAULT_MODELS.get(self.provider, "")
 
     def ensure_dirs(self) -> None:
         self.workspace.mkdir(parents=True, exist_ok=True)

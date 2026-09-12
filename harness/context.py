@@ -30,15 +30,13 @@ Be direct and efficient with your tool calls.
 """
 
 
-def build_system(config: Config) -> list[dict]:
-    """System prompt as a cacheable block (stable across iterations)."""
-    return [
-        {
-            "type": "text",
-            "text": SYSTEM_TEMPLATE,
-            "cache_control": {"type": "ephemeral"},
-        }
-    ]
+def system_prompt(config: Config) -> str:
+    """The system prompt as plain text.
+
+    Vendor-neutral: each provider applies its own formatting (e.g. the Anthropic
+    provider wraps it in a cacheable block).
+    """
+    return SYSTEM_TEMPLATE
 
 
 def truncate_output(text: str, max_bytes: int) -> str:

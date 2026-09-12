@@ -1,8 +1,9 @@
 """The agent loop — the heart of the harness.
 
-It stitches all the components together: context -> LLM -> (policy -> sandbox ->
-tools) -> state/event log -> evaluator. It is a manual loop (not the SDK tool
-runner) precisely because the goal here is to see and control every step.
+It stitches all the components together: context -> provider (LLM) -> (policy ->
+sandbox -> tools) -> state/event log -> evaluator. The loop is vendor-neutral:
+it talks to any backend through the `Provider` interface, so switching between
+Anthropic, OpenAI and Google is just a config change.
 """
 
 from __future__ import annotations
@@ -10,13 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from harness.config import Config
-from harness.context import build_system, truncate_output
+from harness.context import system_prompt, truncate_output
 from harness.evaluator import Evaluator
-from harness.llm import LLM
 from harness.policies import PolicyEngine
+from harness.providers import ToolOutput, ToolSpec, build_provider
 from harness.sandbox import Sandbox
 from harness.state import State
-from harness.tools.registry import ToolRegistry, default_registry
+from harness.tools.registry import default_registry
 
 
 @dataclass
@@ -35,41 +36,46 @@ def run_agent(task: str, config: Config | None = None) -> AgentResult:
     config.ensure_dirs()
 
     sandbox = Sandbox(config.workspace, config.command_timeout)
-    registry: ToolRegistry = default_registry()
+    registry = default_registry()
     policy = PolicyEngine()
     evaluator = Evaluator(config.test_command)
-    llm = LLM(config)
+
+    # Convert the registry's tool definitions into vendor-neutral specs.
+    tool_specs = [
+        ToolSpec(s["name"], s["description"], s["input_schema"]) for s in registry.schemas()
+    ]
+    # `effort` is Anthropic-specific; other providers absorb unknown options
+    # via **options, so the loop stays free of per-provider branching.
+    provider = build_provider(
+        config.provider,
+        config.model,
+        system_prompt(config),
+        tool_specs,
+        max_tokens=config.max_tokens,
+        effort=config.effort,
+    )
 
     state = State(task=task, event_log_path=config.event_log)
-    state.record("task_created", task=task, model=config.model, workspace=str(config.workspace))
-    state.add_user(task)
+    state.record(
+        "task_created",
+        task=task,
+        provider=config.provider,
+        model=config.model,
+        workspace=str(config.workspace),
+    )
 
-    system = build_system(config)
-    tools = registry.schemas()
+    response = provider.send_user(task)
     eval_retries = 0
     final_text = ""
 
     while state.step < config.max_steps:
         state.step += 1
+        state.record("model_called", done=response.done, tool_calls=len(response.tool_calls))
+        if response.text:
+            final_text = response.text
 
-        # 1) One reasoning iteration of the model.
-        response = llm.generate(system=system, messages=state.messages, tools=tools)
-        state.record("model_called", stop_reason=response.stop_reason)
-
-        # Keep the whole response in the history (including thinking blocks,
-        # which must be sent back to the model in the same session/model).
-        state.add_assistant(response.content)
-
-        text_blocks = [b.text for b in response.content if b.type == "text"]
-        if text_blocks:
-            final_text = "\n".join(text_blocks)
-
-        # A server-side tool paused; just resend to continue.
-        if response.stop_reason == "pause_turn":
-            continue
-
-        # 2) The model stopped calling tools => candidate to finish.
-        if response.stop_reason == "end_turn":
+        # 1) The model stopped calling tools => candidate to finish.
+        if response.done:
             evaluation = evaluator.check(sandbox)
             if evaluation.success:
                 state.record("task_completed", summary=final_text)
@@ -84,47 +90,40 @@ def run_agent(task: str, config: Config | None = None) -> AgentResult:
                 return AgentResult(success=False, summary=final_text, steps=state.step)
 
             _log(f"evaluator rejected (attempt {eval_retries}); handing back to the agent.")
-            state.add_user(evaluation.feedback)
+            response = provider.send_user(evaluation.feedback)
             continue
 
-        # 3) stop_reason == "tool_use": execute each call.
-        tool_uses = [b for b in response.content if b.type == "tool_use"]
-        tool_results = []
-        for block in tool_uses:
-            decision = policy.check(block.name, block.input)
+        # Not done, but nothing to execute: the model stopped for another
+        # reason (e.g. max_tokens or refusal). Terminate instead of sending an
+        # empty tool-results turn, which the provider APIs reject.
+        if not response.tool_calls:
+            state.record("stopped_without_tools", steps=state.step)
+            _log("model stopped without finishing or calling tools.")
+            return AgentResult(success=False, summary=final_text, steps=state.step)
+
+        # 2) Execute each requested tool call, subject to the policies.
+        outputs: list[ToolOutput] = []
+        for call in response.tool_calls:
+            decision = policy.check(call.name, call.input)
             if not decision.allowed:
-                state.record("tool_rejected", tool=block.name, reason=decision.reason)
-                _log(f"policy blocked {block.name}: {decision.reason}")
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": decision.reason,
-                        "is_error": True,
-                    }
-                )
+                state.record("tool_rejected", tool=call.name, reason=decision.reason)
+                _log(f"policy blocked {call.name}: {decision.reason}")
+                outputs.append(ToolOutput(call.id, call.name, decision.reason, is_error=True))
                 continue
 
-            _log(f"→ {block.name}({_preview(block.input)})")
-            result = registry.execute(block.name, block.input, sandbox)
+            _log(f"→ {call.name}({_preview(call.input)})")
+            result = registry.execute(call.name, call.input, sandbox)
             content = truncate_output(result.content, config.max_tool_output)
             state.record(
                 "tool_executed",
-                tool=block.name,
-                args=block.input,
+                tool=call.name,
+                args=call.input,
                 is_error=result.is_error,
                 output_bytes=len(result.content),
             )
-            tool_results.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": content,
-                    "is_error": result.is_error,
-                }
-            )
+            outputs.append(ToolOutput(call.id, call.name, content, is_error=result.is_error))
 
-        state.add_user(tool_results)
+        response = provider.send_tool_results(outputs)
 
     # Hit the step ceiling.
     state.record("max_steps_reached", steps=state.step)
