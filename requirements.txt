@@ -1,9 +1,11 @@
 # Base: Anthropic backend (default provider).
 anthropic>=1.0.0
 
+# Install inside a virtualenv (see README): python3 -m venv .venv && source .venv/bin/activate
+#
 # Optional backends — install only the one you use:
-#   pip3 install openai         # HARNESS_PROVIDER=openai
-#   pip3 install google-genai   # HARNESS_PROVIDER=google
-
+#   pip install openai         # HARNESS_PROVIDER=openai
+#   pip install google-genai   # HARNESS_PROVIDER=google
+#
 # Optional HTTP API (backs the control-panel frontend):
-#   pip3 install fastapi uvicorn   # then: python3 -m harness.api
+#   pip install fastapi uvicorn   # then: python -m harness.api

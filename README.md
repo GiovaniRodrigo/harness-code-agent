@@ -38,19 +38,23 @@ Task
 ## Installation
 
 ```bash
-pip3 install -r requirements.txt          # installs the Anthropic backend
-export ANTHROPIC_API_KEY=sk-ant-...        # or use `ant auth login`
+python3 -m venv .venv          # recommended: many distros are "externally managed" (PEP 668)
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt        # installs the Anthropic backend
+export ANTHROPIC_API_KEY=sk-ant-...    # or use `ant auth login`
 ```
 
-To use another backend, install its SDK and set the matching key:
+With the venv active, `python` and `pip` point inside it. To use another backend:
 
 ```bash
-pip3 install openai        && export OPENAI_API_KEY=...   # HARNESS_PROVIDER=openai
-pip3 install google-genai  && export GOOGLE_API_KEY=...   # HARNESS_PROVIDER=google
+pip install openai        && export OPENAI_API_KEY=...   # HARNESS_PROVIDER=openai
+pip install google-genai  && export GOOGLE_API_KEY=...   # HARNESS_PROVIDER=google
 ```
 
-> Use `python3`/`pip3`. If you prefer to type just `python`/`pip`, install the
-> `python-is-python3` package (`sudo apt install python-is-python3`).
+> On Debian/Ubuntu a global `pip3 install` fails with
+> `externally-managed-environment` (PEP 668) — use the venv above. (Alternatives:
+> `pipx`, or `pip install --break-system-packages`, but a venv is cleanest.)
+> The commands below assume the venv is active; otherwise call `.venv/bin/python`.
 
 ## Usage
 
@@ -119,8 +123,8 @@ An optional FastAPI layer exposes the harness to a frontend (a panel generated
 with [v0](https://v0.dev)):
 
 ```bash
-pip3 install fastapi uvicorn
-python3 -m harness.api            # http://127.0.0.1:8000
+pip install fastapi uvicorn       # in the venv (see Installation)
+python -m harness.api             # http://127.0.0.1:8000
 ```
 
 - `POST /run` — `{task, provider, model, orchestrate, test_command}` → `{run_id}`
