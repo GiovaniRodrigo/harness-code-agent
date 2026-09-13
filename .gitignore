@@ -3,6 +3,7 @@ __pycache__/
 .env
 workspace/
 harness_events.jsonl
+harness_watch.stack.log
 .venv/
 venv/
 .vscode/
