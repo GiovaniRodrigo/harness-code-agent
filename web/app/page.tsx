@@ -71,7 +71,10 @@ export default function Page() {
         if (!stopped && next.status === 'running') window.setTimeout(poll, 1000)
         else if (!stopped) refreshHistory()
       } catch (error) {
-        if (!stopped) setRequestError(error instanceof Error ? error.message : 'Não foi possível consultar os eventos.')
+        if (!stopped) {
+          setRequestError(error instanceof Error ? error.message : 'Não foi possível consultar os eventos.')
+          window.setTimeout(poll, 2000)
+        }
       }
     }
     void poll()
@@ -97,7 +100,11 @@ export default function Page() {
 
   async function launchTask(event: React.FormEvent) {
     event.preventDefault()
-    if (!task.trim() || isStarting) return
+    if (isStarting) return
+    if (!task.trim()) {
+      setRequestError('Descreva uma task antes de iniciar.')
+      return
+    }
     setIsStarting(true)
     setRequestError('')
     try {
