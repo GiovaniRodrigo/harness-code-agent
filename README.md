@@ -152,6 +152,9 @@ python -m harness.api             # http://127.0.0.1:8000
 
 Runs execute in a background thread; state is in-memory (local/dev use).
 
+The v0-generated Next.js panel that drives this API lives in [`web/`](web/) —
+see [`web/README.md`](web/README.md) to run it.
+
 ## Security (read before real use)
 
 `sandbox.py` confines paths and `policies.py` blocks obvious accidents, but
