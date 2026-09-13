@@ -9,6 +9,24 @@ from pathlib import Path
 from harness.providers.factory import DEFAULT_MODELS
 
 
+def load_env(path: str | None = None) -> bool:
+    """Load a .env file into the environment if python-dotenv is available.
+
+    Returns True if a file was loaded. Missing lib or missing file is a no-op,
+    so the harness works with or without python-dotenv installed. Existing
+    environment variables are not overridden.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ModuleNotFoundError:
+        return False
+    return load_dotenv(dotenv_path=path)
+
+
+# Auto-load .env on import, before any Config() reads os.getenv.
+load_env()
+
+
 @dataclass
 class Config:
     # LLM backend: anthropic | openai | google.

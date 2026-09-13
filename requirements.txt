@@ -1,5 +1,6 @@
-# Base: Anthropic backend (default provider).
+# Base: Anthropic backend (default provider) + .env auto-loading.
 anthropic>=1.0.0
+python-dotenv>=1.0.0
 
 # Install inside a virtualenv (see README): python3 -m venv .venv && source .venv/bin/activate
 #

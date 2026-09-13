@@ -35,13 +35,32 @@ Task
 | `harness/config.py` | Environment-based configuration, with defaults. |
 | `main.py` | CLI. |
 
-## Installation
+## Quick start (Makefile)
+
+The Makefile is the front door — it creates the venv and installs for you. Run
+`make` to list targets.
+
+```bash
+cp .env.example .env            # then put your ANTHROPIC_API_KEY in .env
+make setup                      # create .venv + install the base dependency
+make run TASK="Create hello.py that prints 'hello' and run it."
+make test                       # run the test suite
+make serve                      # control-panel API on http://127.0.0.1:8000
+make install-all                # optional: OpenAI + Google backends + the API
+```
+
+`make run` accepts `ORCHESTRATE=1` and `TEST_CMD="python3 -m pytest -q"`. The app
+auto-loads `.env`, so no manual `export` is needed.
+
+## Installation (manual)
+
+Prefer `make setup`. To do it by hand:
 
 ```bash
 python3 -m venv .venv          # recommended: many distros are "externally managed" (PEP 668)
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt        # installs the Anthropic backend
-export ANTHROPIC_API_KEY=sk-ant-...    # or use `ant auth login`
+cp .env.example .env && $EDITOR .env   # ANTHROPIC_API_KEY (auto-loaded), or use `ant auth login`
 ```
 
 With the venv active, `python` and `pip` point inside it. To use another backend:
