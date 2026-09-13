@@ -12,7 +12,7 @@ from harness.providers.base import (
     ToolOutput,
     ToolSpec,
 )
-from harness.providers.factory import DEFAULT_MODELS, build_provider
+from harness.providers.factory import DEFAULT_MODELS, build_provider, default_model_for
 
 __all__ = [
     "LLMResponse",
@@ -22,4 +22,5 @@ __all__ = [
     "ToolSpec",
     "DEFAULT_MODELS",
     "build_provider",
+    "default_model_for",
 ]

@@ -6,11 +6,12 @@ google-genai) are only required when actually selected.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from harness.providers.base import Provider, ToolSpec
 
-# Sensible default model per provider when HARNESS_MODEL is unset.
+# Sensible default model per provider when no model is specified.
 # Adjust to whatever you have access to.
 DEFAULT_MODELS = {
     "anthropic": "claude-opus-5",
@@ -18,6 +19,22 @@ DEFAULT_MODELS = {
     "google": "gemini-2.5-pro",
     "ollama": "llama3.1",
 }
+
+
+def default_model_for(provider: str) -> str:
+    """The default model for ``provider`` when a request gives none.
+
+    A `HARNESS_MODEL_<PROVIDER>` env var (e.g. ``HARNESS_MODEL_OLLAMA``) lets you
+    override the shipped `DEFAULT_MODELS` entry *per provider* without editing
+    code — handy when the built-in default (``llama3.1``) isn't what you have
+    pulled locally, but you don't want to change it for everyone. Returns an
+    empty string for an unknown provider.
+    """
+    provider = provider.lower()
+    override = os.getenv(f"HARNESS_MODEL_{provider.upper()}")
+    if override:
+        return override
+    return DEFAULT_MODELS.get(provider, "")
 
 
 def build_provider(

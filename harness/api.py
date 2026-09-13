@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from harness.config import Config
 from harness.loop import run_agent
 from harness.orchestrator import Orchestrator
-from harness.providers import DEFAULT_MODELS
+from harness.providers import default_model_for
 
 _RUNS: dict[str, dict[str, Any]] = {}
 _LOCK = threading.Lock()
@@ -45,8 +45,9 @@ def _build_config(req: RunRequest, workspace: Path, event_log: Path) -> Config:
     config = Config()
     if req.provider:
         config.provider = req.provider.lower()
-        # Switching provider without a model re-picks that provider's default.
-        config.model = req.model or DEFAULT_MODELS.get(config.provider, config.model)
+        # Switching provider without a model re-picks that provider's default
+        # (a HARNESS_MODEL_<PROVIDER> override wins over the shipped default).
+        config.model = req.model or default_model_for(config.provider) or config.model
     elif req.model:
         config.model = req.model
     if req.test_command is not None:

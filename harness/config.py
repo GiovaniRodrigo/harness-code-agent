@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from harness.providers.factory import DEFAULT_MODELS
+from harness.providers.factory import default_model_for
 
 
 def load_env(path: str | None = None) -> bool:
@@ -73,9 +73,10 @@ class Config:
 
     def __post_init__(self) -> None:
         self.provider = self.provider.lower()
-        # Pick a per-provider default model when HARNESS_MODEL is unset.
+        # Pick a per-provider default model when HARNESS_MODEL is unset
+        # (honors a HARNESS_MODEL_<PROVIDER> override before the shipped default).
         if not self.model:
-            self.model = DEFAULT_MODELS.get(self.provider, "")
+            self.model = default_model_for(self.provider)
 
     def ensure_dirs(self) -> None:
         self.workspace.mkdir(parents=True, exist_ok=True)

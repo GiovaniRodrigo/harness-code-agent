@@ -18,6 +18,30 @@ class ProviderFactoryTest(unittest.TestCase):
         self.assertIn("google", DEFAULT_MODELS)
         self.assertIn("ollama", DEFAULT_MODELS)
 
+    def test_default_model_for_falls_back_to_shipped(self) -> None:
+        import os
+        from unittest.mock import patch
+
+        from harness.providers import default_model_for
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("HARNESS_MODEL_OLLAMA", None)
+            self.assertEqual(default_model_for("ollama"), "llama3.1")
+            self.assertEqual(default_model_for("OLLAMA"), "llama3.1")  # case-insensitive
+        self.assertEqual(default_model_for("nope"), "")  # unknown provider
+
+    def test_default_model_for_env_override_is_per_provider(self) -> None:
+        import os
+        from unittest.mock import patch
+
+        from harness.providers import default_model_for
+
+        with patch.dict(os.environ, {"HARNESS_MODEL_OLLAMA": "llama3.2:1b"}, clear=False):
+            self.assertEqual(default_model_for("ollama"), "llama3.2:1b")
+            # Override for one provider must not leak into another.
+            os.environ.pop("HARNESS_MODEL_ANTHROPIC", None)
+            self.assertEqual(default_model_for("anthropic"), "claude-opus-5")
+
     def test_missing_sdk_is_lazy(self) -> None:
         # Constructing a backend whose SDK isn't installed must fail at import
         # time (ModuleNotFoundError), not at factory-dispatch time.

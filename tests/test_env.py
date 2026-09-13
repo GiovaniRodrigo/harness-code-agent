@@ -36,5 +36,40 @@ class LoadEnvTest(unittest.TestCase):
             self.assertFalse(load_env(str(Path(tmp) / "nope.env")))
 
 
+class ConfigModelResolutionTest(unittest.TestCase):
+    """Config fills the model from HARNESS_MODEL_<PROVIDER> before the shipped default."""
+
+    def test_per_provider_override_fills_empty_model(self) -> None:
+        from unittest.mock import patch
+
+        from harness.config import Config
+
+        env = {"HARNESS_PROVIDER": "ollama", "HARNESS_MODEL": "", "HARNESS_MODEL_OLLAMA": "llama3.2:1b"}
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(Config().model, "llama3.2:1b")
+
+    def test_shipped_default_when_no_override(self) -> None:
+        from unittest.mock import patch
+
+        from harness.config import Config
+
+        with patch.dict(os.environ, {"HARNESS_PROVIDER": "ollama", "HARNESS_MODEL": ""}, clear=False):
+            os.environ.pop("HARNESS_MODEL_OLLAMA", None)
+            self.assertEqual(Config().model, "llama3.1")
+
+    def test_explicit_global_model_wins_over_override(self) -> None:
+        from unittest.mock import patch
+
+        from harness.config import Config
+
+        env = {
+            "HARNESS_PROVIDER": "ollama",
+            "HARNESS_MODEL": "explicit-model",
+            "HARNESS_MODEL_OLLAMA": "llama3.2:1b",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(Config().model, "explicit-model")
+
+
 if __name__ == "__main__":
     unittest.main()

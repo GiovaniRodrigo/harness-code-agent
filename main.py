@@ -15,7 +15,7 @@ from pathlib import Path
 
 from harness.config import Config
 from harness.loop import run_agent
-from harness.providers import DEFAULT_MODELS
+from harness.providers import default_model_for
 
 
 def main() -> int:
@@ -47,7 +47,7 @@ def main() -> int:
         # provider's default, so a HARNESS_MODEL meant for another vendor isn't
         # sent to the wrong one. Pass --model to override.
         if not args.model:
-            config.model = DEFAULT_MODELS.get(config.provider, config.model)
+            config.model = default_model_for(config.provider) or config.model
     if args.workspace:
         config.workspace = Path(args.workspace).resolve()
     if args.test_command is not None:
