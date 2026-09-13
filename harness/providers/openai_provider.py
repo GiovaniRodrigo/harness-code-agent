@@ -4,11 +4,15 @@ Note: written against the `openai` Python SDK's Chat Completions API. The SDK
 is not installed in this repo by default (`pip install openai`), so this
 provider is not exercised by the smoke tests; verify against your installed
 SDK version before relying on it.
+
+The client target is configurable (`base_url` / `api_key`), so any
+OpenAI-compatible server can reuse this backend — see `OllamaProvider`.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 from harness.providers.base import (
@@ -23,6 +27,10 @@ from harness.providers.base import (
 class OpenAIProvider(Provider):
     name = "openai"
 
+    # OpenAI chat models require `max_completion_tokens`; OpenAI-compatible
+    # servers (e.g. Ollama) expect the classic `max_tokens`. Subclasses override.
+    token_param: str = "max_completion_tokens"
+
     def __init__(
         self,
         model: str,
@@ -34,7 +42,7 @@ class OpenAIProvider(Provider):
         super().__init__(model, system, tools, max_tokens, **options)
         from openai import OpenAI  # lazy: only needed when this provider is selected
 
-        self.client = OpenAI()
+        self.client = OpenAI(**self._client_kwargs())
         self._tools = [
             {
                 "type": "function",
@@ -50,14 +58,29 @@ class OpenAIProvider(Provider):
         if system:
             self._messages.append({"role": "system", "content": system})
 
+    def _client_kwargs(self) -> dict[str, Any]:
+        """Optional overrides for the SDK client (endpoint / credentials).
+
+        Left to the SDK defaults (OPENAI_API_KEY, api.openai.com) unless a
+        `base_url`/`api_key` option is given or OPENAI_BASE_URL is set.
+        """
+        kwargs: dict[str, Any] = {}
+        base_url = self.options.get("base_url") or os.getenv("OPENAI_BASE_URL")
+        api_key = self.options.get("api_key") or os.getenv("OPENAI_API_KEY")
+        if base_url:
+            kwargs["base_url"] = base_url
+        if api_key:
+            kwargs["api_key"] = api_key
+        return kwargs
+
     def _generate(self) -> LLMResponse:
         completion = self.client.chat.completions.create(
             model=self.model,
-            # Newer models (o-series, gpt-5) reject the legacy `max_tokens` and
-            # require `max_completion_tokens`, which current chat models accept.
-            max_completion_tokens=self.max_tokens,
             messages=self._messages,
             tools=self._tools or None,
+            # Newer OpenAI models reject the legacy `max_tokens` and require
+            # `max_completion_tokens`; compatible servers want `max_tokens`.
+            **{self.token_param: self.max_tokens},
         )
         message = completion.choices[0].message
         raw_calls = message.tool_calls or []
@@ -97,9 +120,20 @@ class OpenAIProvider(Provider):
         return self._generate()
 
 
-def _parse_args(arguments: str) -> dict[str, Any]:
-    """Tool arguments arrive as a JSON string; never string-match them."""
-    try:
-        return json.loads(arguments) if arguments else {}
-    except json.JSONDecodeError:
+def _parse_args(arguments: Any) -> dict[str, Any]:
+    """Normalize tool arguments; never string-match them.
+
+    OpenAI sends `function.arguments` as a JSON string, but OpenAI-compatible
+    servers (e.g. Ollama) may hand back an already-decoded object. Accept both,
+    plus the empty/None case, so a tool-capable Ollama run doesn't blow up in
+    `json.loads`.
+    """
+    if isinstance(arguments, dict):
+        return arguments
+    if not arguments:
         return {}
+    try:
+        parsed = json.loads(arguments)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}

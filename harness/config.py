@@ -29,7 +29,7 @@ load_env()
 
 @dataclass
 class Config:
-    # LLM backend: anthropic | openai | google.
+    # LLM backend: anthropic | openai | google | ollama.
     provider: str = field(default_factory=lambda: os.getenv("HARNESS_PROVIDER", "anthropic").lower())
 
     # Model id. Empty => a per-provider default is filled in __post_init__.
