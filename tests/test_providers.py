@@ -66,5 +66,28 @@ class OllamaProviderTest(unittest.TestCase):
             self.assertEqual(prov._client_kwargs()["base_url"], "http://server:11434/v1")
 
 
+class ParseArgsTest(unittest.TestCase):
+    """`_parse_args` must tolerate the shapes OpenAI-compatible servers return."""
+
+    def test_accepts_json_string(self) -> None:
+        from harness.providers.openai_provider import _parse_args
+
+        self.assertEqual(_parse_args('{"a": 1}'), {"a": 1})
+
+    def test_accepts_already_decoded_dict(self) -> None:
+        # Ollama may hand back structured arguments as an object, not a string.
+        from harness.providers.openai_provider import _parse_args
+
+        self.assertEqual(_parse_args({"a": 1}), {"a": 1})
+
+    def test_empty_and_malformed_are_safe(self) -> None:
+        from harness.providers.openai_provider import _parse_args
+
+        self.assertEqual(_parse_args(""), {})
+        self.assertEqual(_parse_args(None), {})
+        self.assertEqual(_parse_args("not json"), {})
+        self.assertEqual(_parse_args("[1, 2]"), {})  # non-object JSON
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -120,9 +120,20 @@ class OpenAIProvider(Provider):
         return self._generate()
 
 
-def _parse_args(arguments: str) -> dict[str, Any]:
-    """Tool arguments arrive as a JSON string; never string-match them."""
-    try:
-        return json.loads(arguments) if arguments else {}
-    except json.JSONDecodeError:
+def _parse_args(arguments: Any) -> dict[str, Any]:
+    """Normalize tool arguments; never string-match them.
+
+    OpenAI sends `function.arguments` as a JSON string, but OpenAI-compatible
+    servers (e.g. Ollama) may hand back an already-decoded object. Accept both,
+    plus the empty/None case, so a tool-capable Ollama run doesn't blow up in
+    `json.loads`.
+    """
+    if isinstance(arguments, dict):
+        return arguments
+    if not arguments:
         return {}
+    try:
+        parsed = json.loads(arguments)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}

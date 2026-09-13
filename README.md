@@ -102,6 +102,8 @@ All variables are optional (see `.env.example`):
 - `HARNESS_PROVIDER` — `anthropic` (default) | `openai` | `google` | `ollama`.
 - `HARNESS_MODEL` — model id. If empty, a per-provider default is used
   (`claude-opus-5`, `gpt-4o`, `gemini-2.5-pro`, `llama3.1`).
+- `OLLAMA_BASE_URL` — Ollama endpoint (ollama only), taking precedence over
+  `OLLAMA_HOST`; a bare host, an `http://...` URL, or a `/v1` URL all work.
 - `OLLAMA_HOST` — Ollama endpoint (ollama only). Defaults to
   `http://localhost:11434`; a bare host or a `/v1` URL both work.
 - `HARNESS_EFFORT` — `low` | `medium` | `high` | `xhigh` | `max` (Anthropic only).
