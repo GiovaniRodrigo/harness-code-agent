@@ -24,7 +24,7 @@ def main() -> int:
     parser.add_argument("-f", "--file", help="Read the task from a file.")
     parser.add_argument("--workspace", help="Workspace directory (overrides HARNESS_WORKSPACE).")
     parser.add_argument("--test-command", help="Evaluator verification command (e.g. 'pytest -q').")
-    parser.add_argument("--provider", help="Provider (overrides HARNESS_PROVIDER): anthropic|openai|google.")
+    parser.add_argument("--provider", help="Provider (overrides HARNESS_PROVIDER): anthropic|openai|google|ollama.")
     parser.add_argument("--model", help="Model ID (overrides HARNESS_MODEL).")
     parser.add_argument(
         "--orchestrate",

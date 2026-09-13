@@ -16,6 +16,7 @@ DEFAULT_MODELS = {
     "anthropic": "claude-opus-5",
     "openai": "gpt-4o",
     "google": "gemini-2.5-pro",
+    "ollama": "llama3.1",
 }
 
 
@@ -40,6 +41,10 @@ def build_provider(
         from harness.providers.google_provider import GoogleProvider
 
         return GoogleProvider(model, system, tools, max_tokens, **options)
+    if name == "ollama":
+        from harness.providers.ollama_provider import OllamaProvider
+
+        return OllamaProvider(model, system, tools, max_tokens, **options)
     raise ValueError(
-        f"Unknown provider '{name}'. Use one of: anthropic, openai, google."
+        f"Unknown provider '{name}'. Use one of: anthropic, openai, google, ollama."
     )

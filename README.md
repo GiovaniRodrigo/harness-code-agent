@@ -25,7 +25,7 @@ Task
 | File | Role |
 |---|---|
 | `harness/loop.py` | The agent loop — stitches everything together. A **manual** loop (`while stop_reason == "tool_use"`) so every step stays visible. |
-| `harness/providers/` | Vendor-neutral `Provider` layer — one backend per LLM vendor (Anthropic, OpenAI, Google), selected by `HARNESS_PROVIDER`. |
+| `harness/providers/` | Vendor-neutral `Provider` layer — one backend per LLM vendor (Anthropic, OpenAI, Google, Ollama), selected by `HARNESS_PROVIDER`. |
 | `harness/tools/` | The `Tool` base, the `registry`, and the tools: `read_file`, `write_file`, `list_dir`, `run_command`. The model only acts through these. |
 | `harness/sandbox.py` | Confines paths and commands to the workspace; command timeout. |
 | `harness/policies.py` | Guardrails: blocks clearly dangerous commands before they run. |
@@ -74,6 +74,7 @@ With the venv active, `python` and `pip` point inside it. To use another backend
 ```bash
 pip install openai        && export OPENAI_API_KEY=...   # HARNESS_PROVIDER=openai
 pip install google-genai  && export GOOGLE_API_KEY=...   # HARNESS_PROVIDER=google
+pip install openai                                       # HARNESS_PROVIDER=ollama (local, no key)
 ```
 
 > On Debian/Ubuntu a global `pip3 install` fails with
@@ -98,9 +99,11 @@ recorded in `./harness_events.jsonl`.
 
 All variables are optional (see `.env.example`):
 
-- `HARNESS_PROVIDER` — `anthropic` (default) | `openai` | `google`.
+- `HARNESS_PROVIDER` — `anthropic` (default) | `openai` | `google` | `ollama`.
 - `HARNESS_MODEL` — model id. If empty, a per-provider default is used
-  (`claude-opus-5`, `gpt-4o`, `gemini-2.5-pro`).
+  (`claude-opus-5`, `gpt-4o`, `gemini-2.5-pro`, `llama3.1`).
+- `OLLAMA_HOST` — Ollama endpoint (ollama only). Defaults to
+  `http://localhost:11434`; a bare host or a `/v1` URL both work.
 - `HARNESS_EFFORT` — `low` | `medium` | `high` | `xhigh` | `max` (Anthropic only).
 - `HARNESS_WORKSPACE` — the agent's working directory.
 - `HARNESS_TEST_COMMAND` — the evaluator command (e.g. `pytest -q`).
@@ -117,11 +120,18 @@ results to and from its SDK's wire format.
 ```bash
 HARNESS_PROVIDER=openai python3 main.py "Create hello.py and run it."
 HARNESS_PROVIDER=google HARNESS_MODEL=gemini-2.5-flash python3 main.py -f example/task.md
+# Local models via Ollama (`ollama serve` + `ollama pull llama3.1` first):
+HARNESS_PROVIDER=ollama HARNESS_MODEL=llama3.1 python3 main.py "Create hello.py and run it."
 ```
 
+Ollama reuses the OpenAI SDK against Ollama's OpenAI-compatible `/v1` endpoint,
+so no API key and no Ollama-specific package are needed — just `pip install
+openai` and a running Ollama daemon. Pick a tool-capable model (e.g. `llama3.1`,
+`qwen2.5`); models without function-calling support can't drive the tools.
+
 Only the Anthropic backend is smoke-tested here (its SDK is the base
-dependency). The OpenAI and Google backends are written against their current
-SDKs but not exercised in CI — verify against your installed SDK version.
+dependency). The OpenAI, Google and Ollama backends are written against their
+current SDKs but not exercised in CI — verify against your installed SDK version.
 
 ## Orchestration (multi-agent)
 
