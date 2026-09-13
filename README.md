@@ -58,6 +58,19 @@ Run the **whole system** (API on :8000 + the web panel on :3000) with one comman
 make up                         # starts both; Ctrl+C stops both
 ```
 
+To keep a local instance tracking `main` automatically, run the auto-updater. It
+polls `origin/main` and, on every merge, fast-forwards the checkout and restarts
+the stack for you — no manual `git pull` + `make up`:
+
+```bash
+make watch                      # Ctrl+C stops the watcher and the stack
+# tune: WATCH_INTERVAL=15 WATCH_BRANCH=main make watch
+```
+
+The stack's own output is written to `harness_watch.stack.log`
+(`tail -f harness_watch.stack.log`). A dirty working tree pauses auto-updates so
+uncommitted work is never clobbered.
+
 ## Installation (manual)
 
 Prefer `make setup`. To do it by hand:

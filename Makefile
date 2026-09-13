@@ -6,7 +6,7 @@ PIP := $(VENV)/bin/pip
 STAMP := $(VENV)/.installed
 
 .DEFAULT_GOAL := help
-.PHONY: help setup install-all run serve web-setup web up test clean
+.PHONY: help setup install-all run serve web-setup web up watch test clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -49,6 +49,9 @@ up: setup web-setup  ## Run the WHOLE system: API (:8000) + web panel (:3000) to
 	$(PY) -m harness.api & \
 	( cd web && npm run dev ) & \
 	wait
+
+watch:  ## Auto-update: watch origin/main and redeploy the stack on every merge
+	@bash scripts/watch-and-update.sh
 
 test: setup  ## Run the test suite
 	$(PY) -m unittest discover -s tests
