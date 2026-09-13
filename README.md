@@ -52,6 +52,12 @@ make install-all                # optional: OpenAI + Google backends + the API
 `make run` accepts `ORCHESTRATE=1` and `TEST_CMD="python3 -m pytest -q"`. The app
 auto-loads `.env`, so no manual `export` is needed.
 
+Run the **whole system** (API on :8000 + the web panel on :3000) with one command:
+
+```bash
+make up                         # starts both; Ctrl+C stops both
+```
+
 ## Installation (manual)
 
 Prefer `make setup`. To do it by hand:

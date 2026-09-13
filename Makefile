@@ -6,7 +6,7 @@ PIP := $(VENV)/bin/pip
 STAMP := $(VENV)/.installed
 
 .DEFAULT_GOAL := help
-.PHONY: help setup install-all run serve test clean
+.PHONY: help setup install-all run serve web-setup web up test clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -33,9 +33,26 @@ serve: setup  ## Serve the control-panel API on http://127.0.0.1:8000
 	$(PIP) install fastapi uvicorn
 	$(PY) -m harness.api
 
+web/node_modules: web/package.json
+	cd web && npm install
+
+web-setup: web/node_modules  ## Install the web panel dependencies (npm)
+
+web: web-setup  ## Run the web control panel (Next.js dev server on :3000)
+	cd web && npm run dev
+
+up: setup web-setup  ## Run the WHOLE system: API (:8000) + web panel (:3000) together
+	@$(PIP) install fastapi uvicorn >/dev/null
+	@echo "API   -> http://127.0.0.1:8000"
+	@echo "Panel -> http://localhost:3000   (Ctrl+C stops both)"
+	@trap 'kill 0' INT TERM EXIT; \
+	$(PY) -m harness.api & \
+	( cd web && npm run dev ) & \
+	wait
+
 test: setup  ## Run the test suite
 	$(PY) -m unittest discover -s tests
 
-clean:  ## Remove the venv, caches and run artifacts
-	rm -rf $(VENV) harness_runs .pytest_cache
+clean:  ## Remove the venv, caches, run artifacts and web build/deps
+	rm -rf $(VENV) harness_runs .pytest_cache web/node_modules web/.next
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
