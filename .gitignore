@@ -4,6 +4,10 @@ __pycache__/
 workspace/
 harness_events.jsonl
 harness_watch.stack.log
+
+# `npm install` (via `make up` / `make web-setup`) generates this lockfile; it is
+# not tracked, and leaving it unignored trips the `make watch` dirty-tree guard.
+web/package-lock.json
 .venv/
 venv/
 .vscode/
