@@ -39,6 +39,8 @@ start_stack() {
   # setsid puts the stack in its own session/process group so we can signal the
   # whole tree (make + uvicorn + next) without touching this watcher. The inner
   # shell records the new group leader's pid (== pgid) for stop_stack.
+  # Truncate the pidfile FIRST so a restart never reads the previous run's pgid.
+  : > "$PIDFILE"
   setsid bash -c "echo \$\$ > '$PIDFILE'; exec make up" >>"$LOG" 2>&1 &
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     [ -s "$PIDFILE" ] && break
@@ -50,6 +52,11 @@ start_stack() {
   else
     log "warning: could not determine stack pgid; restart may be unclean"
   fi
+}
+
+# Is the stack's process group still alive?
+stack_alive() {
+  [ -n "$STACK_PGID" ] && kill -0 "-$STACK_PGID" 2>/dev/null
 }
 
 stop_stack() {
@@ -85,6 +92,13 @@ start_stack
 while true; do
   sleep "$INTERVAL"
 
+  # If the stack died (failed port bind, install error, crash), bring it back
+  # instead of polling indefinitely against a downed instance.
+  if ! stack_alive; then
+    log "stack is not running; (re)starting"
+    start_stack
+  fi
+
   if ! git fetch --quiet "$REMOTE" "$BRANCH" 2>/dev/null; then
     log "fetch failed; will retry"
     continue
@@ -97,8 +111,9 @@ while true; do
   log "update detected: ${local_sha:0:7} -> ${remote_sha:0:7}"
 
   # Refuse to touch a dirty tree — never clobber uncommitted local work.
-  if ! git diff --quiet || ! git diff --cached --quiet; then
-    log "local changes present; skipping auto-update until the tree is clean"
+  # `git status --porcelain` covers tracked changes AND untracked files.
+  if [ -n "$(git status --porcelain)" ]; then
+    log "local changes present (tracked or untracked); skipping auto-update until the tree is clean"
     continue
   fi
 
