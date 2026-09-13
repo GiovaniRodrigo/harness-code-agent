@@ -115,6 +115,13 @@ All variables are optional (see `.env.example`):
 - `HARNESS_PROVIDER` — `anthropic` (default) | `openai` | `google` | `ollama`.
 - `HARNESS_MODEL` — model id. If empty, a per-provider default is used
   (`claude-opus-5`, `gpt-4o`, `gemini-2.5-pro`, `llama3.1`).
+- `HARNESS_MODEL_<PROVIDER>` — override the default model for one provider
+  without touching the others, e.g. `HARNESS_MODEL_OLLAMA=llama3.2:1b`. This is
+  what the control panel uses when you pick a provider but leave the Model field
+  empty, so you can make Ollama default to a model you actually pulled while
+  `llama3.1` stays the shipped fallback. Precedence: explicit model (CLI
+  `--model` / panel field) → `HARNESS_MODEL` (global) → `HARNESS_MODEL_<PROVIDER>`
+  → built-in default.
 - `OLLAMA_BASE_URL` — Ollama endpoint (ollama only), taking precedence over
   `OLLAMA_HOST`; a bare host, an `http://...` URL, or a `/v1` URL all work.
 - `OLLAMA_HOST` — Ollama endpoint (ollama only). Defaults to
@@ -143,6 +150,42 @@ Ollama reuses the OpenAI SDK against Ollama's OpenAI-compatible `/v1` endpoint,
 so no API key and no Ollama-specific package are needed — just `pip install
 openai` and a running Ollama daemon. Pick a tool-capable model (e.g. `llama3.1`,
 `qwen2.5`); models without function-calling support can't drive the tools.
+
+### Running Ollama (local & remote)
+
+```bash
+# 1. Install Ollama (https://ollama.com/download). With root, the one-liner
+#    `curl -fsSL https://ollama.com/install.sh | sh` sets up a systemd service.
+#    Without root, extract the official tarball into ~/.local and run it yourself
+#    (see contrib/ollama.service for a user-level unit that needs no sudo).
+# 2. Start the daemon (serves http://localhost:11434):
+ollama serve
+# 3. Pull a model, then point the harness at it:
+ollama pull llama3.1
+HARNESS_PROVIDER=ollama HARNESS_MODEL=llama3.1 python3 main.py "..."
+```
+
+**Model sizing.** `llama3.1` is 8B (~4.7 GB, needs ~6 GB RAM). On a small
+machine prefer `llama3.2:3b` (~2 GB) or `llama3.2:1b` (~1.3 GB) — still
+tool-capable, far lighter. Set your choice via `HARNESS_MODEL` (or the panel's
+Model field) so the empty-field default (`llama3.1`) isn't requested when it
+isn't pulled.
+
+**Remote host.** To use a bigger box, point the harness at it — no code change:
+
+```bash
+OLLAMA_HOST=http://gpu-box.lan:11434 HARNESS_PROVIDER=ollama \
+  HARNESS_MODEL=llama3.1 python3 main.py "..."
+```
+
+`OLLAMA_BASE_URL` takes precedence over `OLLAMA_HOST`; a bare host, an
+`http://…` URL, or a `…/v1` URL all work.
+
+**Missing-model check.** On startup the Ollama backend verifies the model is
+installed (via `/api/tags`). If it isn't, you get an actionable error listing
+the installed models and the exact `ollama pull <model>` to run — not a raw
+`404 model not found`. If the host is unreachable the check is skipped so the
+underlying connection error still surfaces.
 
 Only the Anthropic backend is smoke-tested here (its SDK is the base
 dependency). The OpenAI, Google and Ollama backends are written against their
